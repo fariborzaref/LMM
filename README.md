@@ -6,7 +6,7 @@
 # OUTPUTS: Diagnostics, influence analysis, bootstrap CIs, LOCO-CV, plots
 ############################################################
 
-# ========================= 0) PACKAGES =========================
+# = 0) PACKAGES =========================
 required <- c(
   "lme4","lmerTest","performance","see","checkmate","data.table",
   "tidyverse","janitor","broom.mixed","patchwork","ggplot2","influence.ME"
@@ -17,11 +17,11 @@ invisible(lapply(required, library, character.only = TRUE))
 
 set.seed(2025)
 
-# ------------------------ GLOBAL PLOT STYLE ---------------------
+# - GLOBAL PLOT STYLE ---------------------
 theme_set(theme_minimal(base_size = 13))
 options(dplyr.summarise.inform = FALSE)
 
-# =================== 1) LOAD & VALIDATE DATA ===================
+# = 1) LOAD & VALIDATE DATA ===================
 # EXPECTED CSV COLUMNS (case-insensitive):
 #   country, year, gini_income, health_ineq, labor_ineq, gdp_pc, unemployment, openness
 path <- "oecd_inequality_2002_2021.csv"
@@ -66,7 +66,7 @@ if (length(unique(panel_count$n)) != 1) {
   warning("Panel is not balanced; proceeding with REML/ML which tolerate unbalanced data.")
 }
 
-# ===================== 2) MODEL SPECIFICATION ===================
+# = 2) MODEL SPECIFICATION ===================
 # BASELINE: Random intercepts by country
 form_base <- gini_income ~ year_c + gdp_pc_k + unemployment + openness01 + (1 | country)
 
@@ -100,7 +100,7 @@ print(performance::check_model(m2))
 cat("\nR2 (Nakagawa):\n"); print(performance::r2_nakagawa(m2))
 cat("\nICC:\n");        print(performance::icc(m2))
 
-# =================== 3) CORE INTERPRETATIONS (m2) ==================
+# = 3) CORE INTERPRETATIONS (m2) ==================
 cat("\n=== FIXED EFFECTS (m2) ===\n")
 fx <- broom.mixed::tidy(m2, effects = "fixed", conf.int = TRUE)
 print(fx |> select(term, estimate, conf.low, conf.high, p.value))
@@ -111,7 +111,7 @@ cat("• gdp_pc_k < 0 → higher income levels associated with lower inequality 
 cat("• unemployment > 0 → slack labor markets raise inequality.\n")
 cat("• Random slopes: GDP/Unemployment effects vary across countries (heterogeneous responses).\n")
 
-# ===================== 4) INTERACTION MODEL (m3) ==================
+# = 4) INTERACTION MODEL (m3) ==================
 m3 <- lmer(form_interact, data = dat, REML = FALSE)
 cat("\n=== INTERACTION MODEL (m3: gdp_pc_k × health_ineq) ===\n")
 fx3 <- broom.mixed::tidy(m3, effects = "fixed", conf.int = TRUE)
@@ -120,7 +120,7 @@ print(fx3 |> select(term, estimate, conf.low, conf.high, p.value))
 cat("\nINTERPRETATION (m3):\n")
 cat("• gdp_pc_k:health_ineq > 0 → economic gains reduce inequality less where health inequality is high.\n")
 
-# ================== 5) PARAMETRIC BOOTSTRAP CIs ==================
+# = 5) PARAMETRIC BOOTSTRAP CIs ==================
 cat("\n=== PARAMETRIC BOOTSTRAP (m2) — 1000 DRAWS ===\n")
 # (Adjust nsim for speed vs. precision)
 boot_m2 <- bootMer(
@@ -130,7 +130,7 @@ boot_m2 <- bootMer(
 boot_ci <- t(apply(boot_m2$t, 2, function(x) quantile(x, c(0.025, 0.975), na.rm = TRUE)))
 print(round(boot_ci, 3))
 
-# ================== 6) INFLUENCE BY COUNTRY (Δ COEF) ==============
+# = 6) INFLUENCE BY COUNTRY (Δ COEF) ==============
 # Leave-one-country-out change in key coefficients (year_c, gdp_pc_k)
 cat("\n=== INFLUENCE ANALYSIS: LEAVE-ONE-COUNTRY-OUT (m2) ===\n")
 infl <- influence.ME::influence(m2, group = "country")
@@ -145,7 +145,7 @@ deltas <- lapply(delta_terms, function(term) {
   tibble(country = names(dd), term = term, delta = as.numeric(dd))
 }) |> bind_rows()
 
-# ====================== 7) LOCO PREDICTIVE CHECK ==================
+# = 7) LOCO PREDICTIVE CHECK ==================
 # Leave-One-Country-Out CV: refit without a country, predict its trajectory
 cat("\n=== LOCO (LEAVE-ONE-COUNTRY-OUT) PREDICTIVE CHECK (m2) ===\n")
 loco_countries <- unique(dat$country)
@@ -170,7 +170,7 @@ print(loco_df |>
         arrange(desc(MAE)) |>
         head(10))
 
-# ========================= 8) VISUALIZATIONS ======================
+# = 8) VISUALIZATIONS ======================
 # 8a) Predicted inequality trajectories for selected countries
 countries_sel <- c("United States","Germany","Japan","Norway","Mexico")
 pred_dat <- dat |>
@@ -209,7 +209,7 @@ ggsave("LMM/figs/lmm_pred_trajectories.png", p_traj, width = 8, height = 4.6, dp
 ggsave("LMM/figs/lmm_influence_delta.png",   p_infl, width = 8, height = 5.6, dpi = 300)
 ggsave("LMM/figs/lmm_loco_error.png",        p_err, width = 8, height = 6.0, dpi = 300)
 
-# ========================= 9) REPORT TABLE ========================
+# = 9) REPORT TABLE ========================
 # (Note: sjPlot::tab_model is convenient; here we produce a tidy table as CSV)
 tbl_all <- bind_rows(
   broom.mixed::tidy(m1, effects = "fixed", conf.int = TRUE) |> mutate(model = "Random-Intercept"),
@@ -220,14 +220,14 @@ tbl_all <- bind_rows(
 if (!dir.exists("LMM/out")) dir.create("LMM/out", recursive = TRUE)
 fwrite(tbl_all, "LMM/out/lmm_fixed_effects_tables.csv")
 
-# ====================== 10) SAVE MODEL ARTIFACTS ==================
+# = 10) SAVE MODEL ARTIFACTS ==================
 saveRDS(list(
   LMM_base = m1, LMM_slopes = m2, LMM_interact = m3,
   bootstrap_ci = boot_ci, loco_errors = loco_df, influence = deltas
 ), file = "LMM/lmm_oecd_models.rds")
 
 cat("\n=== DONE ===\nArtifacts saved in LMM/figs and LMM/out; models saved to LMM/lmm_oecd_models.rds\n")
-############################################################
+#############################
 # END OF SCRIPT
-############################################################
+#############################
 
