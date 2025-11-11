@@ -23,12 +23,4 @@ m <- lmer(gini_income ~ year_c + gdp_pc_k + unemployment + openness01 + (gdp_pc_
           data = dat, REML = FALSE)
 summary(m)
 
-# 3) Where to put things
-- Script path: `LMM/lmm_run.R`  
-- Data path expected by the script: `LMM/oecd_inequality_2002_2021.csv`  
-- README path: `LMM/README.md`  
-- GitHub will render the README when someone opens the `LMM` folder.
-
-That gives you a clean pair to match your GEE repo: compact 11 to 12 point visuals, tight comments, and outputs saved in predictable folders.
-
 
